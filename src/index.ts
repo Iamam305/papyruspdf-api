@@ -9,7 +9,7 @@ interface Env {
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
-// OpenAPI Info
+// OpenAPI Info for root endpoint
 app.openAPIRegistry.registerPath({
   method: "get",
   path: "/",
@@ -178,21 +178,31 @@ app.openapi(pdfRoute, async (c) => {
   }
 });
 
-// Swagger UI endpoint
-app.doc("/doc", {
-  openapi: "3.0.0",
-  info: {
-    version: "1.0.0",
-    title: "TSX PDF API",
-    description:
-      "API for converting HTML to PDF using Cloudflare Browser Rendering",
-  },
-  servers: [
-    {
-      url: "http://localhost:8787",
-      description: "Local development server",
+// Swagger UI endpoint - dynamically uses current URL
+app.get("/doc", (c) => {
+  const url = new URL(c.req.url);
+  const baseUrl = `${url.protocol}//${url.host}`;
+
+  const doc = app.getOpenAPIDocument({
+    openapi: "3.0.0",
+    info: {
+      version: "1.0.0",
+      title: "TSX PDF API",
+      description:
+        "API for converting HTML to PDF using Cloudflare Browser Rendering",
     },
-  ],
+  });
+
+  // Override servers with current URL
+  return c.json({
+    ...doc,
+    servers: [
+      {
+        url: baseUrl,
+        description: "Current server",
+      },
+    ],
+  });
 });
 
 // Swagger UI
