@@ -35,4 +35,9 @@
   //   "enabled": true,
   //   "head_sampling_rate": 1
   // }
+  // Environment variables should be set via:
+  // - wrangler secret put CLOUDFLARE_API_TOKEN
+  // - Or add to .dev.vars for local development:
+  //   CLOUDFLARE_ACCOUNT_ID=your_account_id
+  //   CLOUDFLARE_API_TOKEN=your_api_token
 }
