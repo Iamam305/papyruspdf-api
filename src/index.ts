@@ -6,6 +6,7 @@ interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
 }
+import Cloudflare from "cloudflare";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -50,14 +51,14 @@ const pdfRoute = createRoute({
   path: "/pdf",
   summary: "Generate PDF from HTML",
   description:
-    "Converts HTML content to PDF using Cloudflare Browser Rendering API",
+    "Converts HTML content to PDF using Cloudflare Browser Rendering API. Supports Tailwind CSS classes - they will be automatically processed during PDF generation.",
   request: {
     body: {
       content: {
         "application/json": {
           schema: PDFRequestSchema,
           example: {
-            html: "<html><body><h1>Hello World</h1></body></html>",
+            html: '<html><body><div class="bg-blue-500 text-red-500 p-8 rounded-lg"><h1 class="text-3xl font-bold">Hello World</h1><p class="mt-4">This is styled with Tailwind CSS!</p></div></body></html>',
           },
         },
       },
@@ -130,31 +131,62 @@ app.openapi(pdfRoute, async (c) => {
         500
       );
     }
-
+    const client = new Cloudflare({
+      apiToken: apiToken,
+      
+    });
     // Call Cloudflare Browser Rendering PDF endpoint
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/pdf`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ html }),
-      }
-    );
+    // Use addScriptTag to inject Tailwind CSS and pdfOptions for printBackground
+    // Reference: https://developers.cloudflare.com/api/resources/browser_rendering/subresources/pdf/methods/create/
+    // const response = await fetch(
+    //   `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/pdf`,
+    //   {
+    //     method: "POST",
+    //     headers: {
+    //       Authorization: `Bearer ${apiToken}`,
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       html: htmlWithPrintCSS,
+    //       // Use addScriptTag to inject Tailwind CSS script
+    //       addScriptTag: [
+    //         {
+    //           url: "https://cdn.tailwindcss.com",
+    //         },
+    //       ],
+    //       // Use pdfOptions with printBackground to ensure background colors are captured
+    //       pdfOptions: {
+    //         printBackground: true,
+    //       },
+    //     }),
+    //   }
+    // );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Cloudflare API error:", errorText);
-      return c.json(
+    // if (!response.ok) {
+    //   const errorText = await response.text();
+    //   console.error("Cloudflare API error:", errorText);
+    //   return c.json(
+    //     {
+    //       error: "Failed to generate PDF from Cloudflare API",
+    //       details: errorText,
+    //     },
+    //     response.status as 400 | 401 | 403 | 404 | 500
+    //   );
+    // }
+    const response = await client.browserRendering.pdf.create({
+      account_id: accountId,
+      html: html,
+      addScriptTag:[
         {
-          error: "Failed to generate PDF from Cloudflare API",
-          details: errorText,
-        },
-        response.status as 400 | 401 | 403 | 404 | 500
-      );
-    }
+          url: "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4",
+          
+        }
+      ],
+      pdfOptions:{
+        printBackground: true,
+        
+      }
+    });
 
     // Get PDF as array buffer
     const pdfBuffer = await response.arrayBuffer();
